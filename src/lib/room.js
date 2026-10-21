@@ -14,7 +14,7 @@ export function makePlayerId() {
 // Joins a room channel and tracks presence. Calls onPlayers with the sorted
 // player list whenever someone joins or leaves; the earliest joiner is host.
 // onMessage receives (event, payload) for broadcasts from other players.
-export function joinRoom({ code, player, onPlayers, onMessage, onFull }) {
+export function joinRoom({ code, player, onPlayers, onMessage, onFull, onError }) {
   if (!supabase) return joinLocalRoom({ code, player, onPlayers, onMessage, onFull })
   const channel = supabase.channel(`room:${code}`, {
     config: { presence: { key: player.id } },
@@ -39,6 +39,9 @@ export function joinRoom({ code, player, onPlayers, onMessage, onFull }) {
     .on('broadcast', { event: '*' }, ({ event, payload }) => onMessage(event, payload))
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') await channel.track(player)
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        onError(`Couldn't reach Supabase (${status}). Check the project URL and anon key.`)
+      }
     })
 
   return {

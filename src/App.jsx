@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { supabaseConfigured } from './lib/supabase'
+import { supabaseConfigured, supabaseError } from './lib/supabase'
 import { MAX_PLAYERS, joinRoom, makePlayerId, makeRoomCode } from './lib/room'
 import { newGame, prune, reduce } from './game/engine'
 import Game from './game/Game'
@@ -67,6 +67,12 @@ export default function App() {
       player,
       onPlayers: handlePlayers,
       onMessage: handleMessage,
+      onError: (message) => {
+        roomRef.current?.leave()
+        roomRef.current = null
+        setRoom(null)
+        setError(message)
+      },
       onFull: () => {
         roomRef.current = null
         setRoom(null)
@@ -107,6 +113,7 @@ export default function App() {
           <button disabled={codeInput.length !== 4} onClick={() => enter(codeInput)}>Join</button>
         </div>
         {error && <p className="error">{error}</p>}
+        {supabaseError && <p className="error small">{supabaseError}</p>}
         {!supabaseConfigured && (
           <p className="muted small">Offline mode: rooms only work between tabs in this browser. Add Supabase keys to <code>.env</code> to play with friends.</p>
         )}
