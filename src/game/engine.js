@@ -1,4 +1,7 @@
 import { CARDS, ROUNDS, cardsIn } from './cards'
+import { RACE_BY_ID } from './data/races'
+import { ABILITIES, CLASS_BY_ID, baseScores } from './data/classes'
+import { cleanLook } from './data/looks'
 
 // The host owns the authoritative game state. Everyone else sends actions to
 // the host, which runs them through reduce() and broadcasts the new state.
@@ -25,9 +28,9 @@ function deal(state) {
 
 export function newGame(players) {
   const heroes = {}
-  for (const p of players) heroes[p.id] = { player: p.name, heroName: '', picks: [] }
+  for (const p of players) heroes[p.id] = { player: p.name, heroName: '', race: null, cls: null, look: null, picks: [] }
   return {
-    phase: 'naming',
+    phase: 'forge',
     order: players.map((p) => p.id),
     heroes,
     round: 0,
@@ -39,7 +42,9 @@ export function newGame(players) {
 }
 
 export function heroStats(hero) {
-  const stats = { M: 1, W: 1, C: 1, L: 1 }
+  const stats = hero.cls ? baseScores(hero.cls) : Object.fromEntries(ABILITIES.map((a) => [a, 10]))
+  const race = RACE_BY_ID[hero.race]
+  for (const [k, v] of Object.entries(race?.asi || {})) stats[k] += v
   for (const pick of hero.picks) {
     for (const [k, v] of Object.entries(CARDS[pick.cardId].stats)) stats[k] += v
   }
@@ -47,8 +52,25 @@ export function heroStats(hero) {
 }
 
 export function heroTitle(hero) {
-  const origin = hero.picks[0] && CARDS[hero.picks[0].cardId]
-  return origin ? `${hero.heroName} the ${origin.name}` : hero.heroName
+  const race = RACE_BY_ID[hero.race]
+  const cls = CLASS_BY_ID[hero.cls]
+  return race && cls ? `${hero.heroName}, ${race.name} ${cls.name}` : hero.heroName
+}
+
+// What the 3D viewer needs. `preview` is a card being considered.
+export function heroSpec(hero, preview) {
+  const picks = {}
+  for (const { cardId } of hero.picks) picks[CARDS[cardId].category] = CARDS[cardId].model
+  if (preview) picks[preview.category] = preview.model
+  return { race: hero.race, cls: hero.cls, look: hero.look, picks }
+}
+
+export function legend(hero) {
+  const race = RACE_BY_ID[hero.race]
+  const cls = CLASS_BY_ID[hero.cls]
+  const lines = [`${hero.heroName} is a ${race.name} ${cls.name}. ${race.blurb} ${cls.blurb}`]
+  for (const { cardId } of hero.picks) lines.push(`${hero.heroName} ${CARDS[cardId].line}`)
+  return lines
 }
 
 const everyone = (state, done) => state.order.every((id) => done[id])
@@ -57,11 +79,12 @@ export function reduce(state, from, action, isHost) {
   if (!state.order.includes(from)) return state
 
   switch (action.type) {
-    case 'name': {
-      if (state.phase !== 'naming') return state
-      const heroName = String(action.heroName).trim().slice(0, 30)
-      if (!heroName) return state
-      const heroes = { ...state.heroes, [from]: { ...state.heroes[from], heroName } }
+    case 'forge': {
+      if (state.phase !== 'forge' || state.submitted[from]) return state
+      const heroName = String(action.heroName || '').trim().slice(0, 30)
+      if (!heroName || !RACE_BY_ID[action.race] || !CLASS_BY_ID[action.cls]) return state
+      const hero = { ...state.heroes[from], heroName, race: action.race, cls: action.cls, look: cleanLook(action.look) }
+      const heroes = { ...state.heroes, [from]: hero }
       const next = { ...state, heroes, submitted: { ...state.submitted, [from]: true } }
       return everyone(next, next.submitted) ? deal(next) : next
     }
@@ -69,12 +92,10 @@ export function reduce(state, from, action, isHost) {
     case 'pick': {
       if (state.phase !== 'creating' || state.submitted[from]) return state
       if (!state.hands[from]?.includes(action.cardId)) return state
-      const answers = action.answers.map((a) => String(a).trim().slice(0, 60))
-      if (answers.some((a) => !a)) return state
       const hero = state.heroes[from]
       const heroes = {
         ...state.heroes,
-        [from]: { ...hero, picks: [...hero.picks, { cardId: action.cardId, answers }] },
+        [from]: { ...hero, picks: [...hero.picks, { cardId: action.cardId }] },
       }
       const next = { ...state, heroes, submitted: { ...state.submitted, [from]: true } }
       if (!everyone(next, next.submitted)) return next
@@ -113,7 +134,7 @@ export function prune(state, presentIds) {
   }
   const done = state.phase === 'voting' ? next.votes : next.submitted
   if (!everyone(next, done)) return next
-  if (state.phase === 'naming') return deal(next)
+  if (state.phase === 'forge') return deal(next)
   if (state.phase === 'creating') {
     return next.round + 1 < ROUNDS.length ? deal({ ...next, round: next.round + 1 }) : { ...next, phase: 'reveal', revealIndex: 0 }
   }

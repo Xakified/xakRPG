@@ -19,7 +19,22 @@ export default function App() {
   const gameRef = useRef(null)
   const isHostRef = useRef(false)
 
+  const absentSince = useRef(new Map())
+
   useEffect(() => () => roomRef.current?.leave(), [])
+
+  // Host only: drop players who have been gone for a while (a phone screen
+  // locking for a few seconds shouldn't kick anyone out of the tale).
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const current = gameRef.current
+      if (!isHostRef.current || !current) return
+      const now = Date.now()
+      const gone = current.order.filter((id) => now - (absentSince.current.get(id) ?? now) > 20000)
+      if (gone.length) publish(prune(current, current.order.filter((id) => !gone.includes(id))))
+    }, 3000)
+    return () => clearInterval(timer)
+  })
 
   function applyState(next) {
     const wasPlaying = Boolean(gameRef.current)
@@ -31,8 +46,11 @@ export default function App() {
     }
   }
 
-  // Host only: change state locally and tell everyone else.
+  // Host only: change state locally and tell everyone else. Each state gets
+  // a revision number so a stale copy (say, from a player who briefly thought
+  // they were host) can't overwrite a newer one.
   function publish(next) {
+    if (next) next = { ...next, rev: (gameRef.current?.rev || 0) + 1 }
     applyState(next)
     roomRef.current?.send('state', next)
   }
@@ -46,15 +64,16 @@ export default function App() {
   function handlePlayers(list) {
     setPlayers(list)
     isHostRef.current = list[0]?.id === playerRef.current.id
-    if (isHostRef.current) {
-      // Catch up anyone who just joined, and drop anyone who left.
-      const current = gameRef.current
-      if (current) publish(prune(current, list.map((p) => p.id)))
-    }
+    const present = new Set(list.map((p) => p.id))
+    const current = gameRef.current
+    for (const id of present) absentSince.current.delete(id)
+    for (const id of current?.order || []) if (!present.has(id) && !absentSince.current.has(id)) absentSince.current.set(id, Date.now())
+    // Catch up anyone who just joined (without bumping the revision).
+    if (isHostRef.current && current) roomRef.current?.send('state', current)
   }
 
   function handleMessage(event, payload) {
-    if (event === 'state') applyState(payload)
+    if (event === 'state' && !(payload && gameRef.current && payload.rev < gameRef.current.rev)) applyState(payload)
     if (event === 'action' && isHostRef.current && gameRef.current) {
       publish(reduce(gameRef.current, payload.from, payload.action, false))
     }

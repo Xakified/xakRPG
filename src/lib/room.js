@@ -52,7 +52,7 @@ export function joinRoom({ code, player, onPlayers, onMessage, onFull, onError }
 }
 
 // Offline stand-in for Supabase so the game can be tried in several tabs of
-// one browser. Presence is a heartbeat; tabs silent for 3s count as gone.
+// one browser. Presence is a heartbeat; tabs silent for 20s count as gone.
 function joinLocalRoom({ code, player, onPlayers, onMessage, onFull }) {
   const bus = new BroadcastChannel(`xakrpg:${code}`)
   const seen = new Map([[player.id, { meta: player, at: Date.now() }]])
@@ -61,7 +61,7 @@ function joinLocalRoom({ code, player, onPlayers, onMessage, onFull }) {
 
   const sync = () => {
     const now = Date.now()
-    for (const [id, p] of seen) if (id !== me.id && now - p.at > 3000) seen.delete(id)
+    for (const [id, p] of seen) if (id !== me.id && now - p.at > 20000) seen.delete(id)
     const players = [...seen.values()].map((p) => p.meta).sort((a, b) => a.joinedAt - b.joinedAt)
     const key = JSON.stringify(players)
     if (key === last) return

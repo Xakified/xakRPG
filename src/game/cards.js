@@ -1,135 +1,119 @@
-// Each card: [name, stats, backstory template, icon, color, look?]. Stats use
-// M(ight) W(its) C(harm) L(uck). Template blanks are written {hint} and filled
-// in by the player. Icons are game-icons.net names; origins also carry the
-// outfit colors and headgear the hero model wears.
-
-export const STATS = { M: 'Might', W: 'Wits', C: 'Charm', L: 'Luck' }
+// Draft cards for the rounds after the character creator. Each card:
+// [name, ability bonuses, legend line, 3D model spec, icon, icon color].
+// The legend line follows the hero's name, e.g. "Brakka wields ...".
 
 const RAW = {
-  Origin: [
-    ['Swamp-Born', 'W2 L1', 'I was raised in a swamp by {a creature}, who taught me how to {a skill}.', 'swamp', '#6f8f4a', { outfit: '#4f6b3a', trim: '#8a6f3e', headgear: 'hood' }],
-    ['Disgraced Knight', 'M2 C1', 'I was thrown out of the knighthood for {a crime}, but honestly {an excuse}.', 'broken-shield', '#a8aeb8', { outfit: '#7d838c', trim: '#7a2a2a', headgear: 'helm' }],
-    ['Lost Royal', 'C2 L1', 'I am secretly heir to {a kingdom}, which I only learned when {an event}.', 'crown', '#e2b448', { outfit: '#5b2a86', trim: '#e2b448', headgear: 'crown' }],
-    ['Tavern Orphan', 'C1 L2', 'I grew up under the floorboards of {a tavern name}, living on {a food}.', 'tavern-sign', '#b08a5a', { outfit: '#7a5a3a', trim: '#b08a5a', headgear: 'cap' }],
-    ["Fired Wizard's Apprentice", 'W3', 'I studied under {a wizard name} until I accidentally turned {a thing} into {another thing}.', 'wizard-face', '#7a9ae8', { outfit: '#2f4f9a', trim: '#d8c25a', headgear: 'wizardhat' }],
-    ['Mountain Hermit', 'M1 W2', 'I spent {a number} years alone on a mountain, pondering {a deep question}.', 'mountain-cave', '#a59a82', { outfit: '#6e6658', trim: '#a59a82', headgear: 'hood' }],
-    ['Retired Pirate', 'M1 L2', 'I sailed the {a sea} until {an event} made me swear off the sea forever.', 'pirate-hat', '#c94a4a', { outfit: '#2c3e57', trim: '#b33a3a', headgear: 'tricorn' }],
-    ['Goblin Accountant', 'W2 C1', 'I kept the books for {a goblin warlord}, and I know where {something} is buried.', 'abacus', '#c9a54a', { outfit: '#4a5d2a', trim: '#c9a54a', headgear: 'cap' }],
-    ['Cursed Farmer', 'M2 L1', 'My fields grew {an unusual thing} instead of wheat after I insulted {a god}.', 'wheat', '#d8b45a', { outfit: '#9b7a3c', trim: '#5b7a3a', headgear: 'strawhat' }],
-    ['Circus Runaway', 'C2 L1', 'I fled the travelling circus after the {an animal} and I {did something}.', 'juggler', '#e05a5a', { outfit: '#b8323a', trim: '#f0c040', headgear: 'tophat' }],
-    ['Monastery Brewer', 'W1 C2', 'Monks raised me to brew {a drink}, which makes anyone who drinks it {an effect}.', 'beer-stein', '#d9b77a', { outfit: '#7b4a2a', trim: '#d9b77a', headgear: 'hood' }],
-    ['Dragon-Egg Hatchling', 'M2 W1', 'I hatched from an egg a dragon {did something to}, and I still {a weird habit}.', 'egg-clutch', '#e07a2c', { outfit: '#8a2c2c', trim: '#e07a2c', headgear: 'horns' }],
-    ['Haunted Librarian', 'W2 L1', 'I worked nights at {a library}, where the ghost of {a person} still owes me {a thing}.', 'open-book', '#9a8fc4', { outfit: '#3b3355', trim: '#9a8fc4', headgear: 'none' }],
-    ["Bard's Forgotten Child", 'C3', 'My father was a famous bard who wrote {a song title}, a ballad about {an embarrassing topic}.', 'harp', '#e6c35a', { outfit: '#2a6f6a', trim: '#e6c35a', headgear: 'feathercap' }],
-    ['Village Fool (Allegedly)', 'L3', 'Everyone in {a village} calls me a fool, ever since {an incident}.', 'jester-hat', '#8ab04a', { outfit: '#a07a3a', trim: '#6a8a3a', headgear: 'jester' }],
-  ],
   Weapon: [
-    ['Rusty Longsword', 'M2 L1', 'My blade is named {a name}, and it was forged by {a person} in {a place}.', 'broadsword', '#c9ced6'],
-    ['Sentient Spoon', 'W1 L2', 'My spoon whispers "{a phrase}" every time I {an action}.', 'spoon', '#d8d0b0'],
-    ["Grandmother's Crossbow", 'M1 W2', 'Grandma used this crossbow to slay {a monster}, using {an item} as bolts.', 'crossbow', '#b07a3a'],
-    ['Staff of Mild Inconvenience', 'W2 C1', 'My staff can make anyone {a minor misfortune}, but only on {a day}.', 'crescent-staff', '#a07ad8'],
-    ['Twin Daggers', 'M1 L2', 'I stole these daggers from {a villain}, who still hunts me because {a reason}.', 'daggers', '#c0c6cc'],
-    ['Lute of Battle', 'C3', 'My lute only plays one song, "{a song title}", which makes enemies {a reaction}.', 'guitar', '#c08a4a'],
-    ['Enchanted Frying Pan', 'M2 C1', 'This pan once cooked {a dish} for {a famous person}, and it remembers.', 'saucepan', '#8a8a8a'],
-    ['Bone Wand', 'W3', 'This wand is carved from the bone of {a creature}, who died {how it died}.', 'skull-staff', '#e8e0c8'],
-    ['Warhammer Too Big to Lift', 'M3', 'I drag my hammer everywhere, and it has carved a trench through {a place}.', 'warhammer', '#9aa0a8'],
-    ['Whip of Stern Words', 'C2 L1', 'Each crack of my whip shouts "{an insult}" in the voice of {a person}.', 'whip', '#a0683a'],
-    ['Boomerang Bow', 'M1 W1 L1', 'Every arrow I fire comes back {a strange way}, because I once {a mistake}.', 'bow-arrow', '#b08a4a'],
-    ['Pointy Stick', 'L3', 'This is just a stick, but I tell everyone it is {a grand title}.', 'wood-stick', '#9a7a4a'],
-    ['Ancestral Axe', 'M2 W1', 'The axe has passed through {a number} generations, and each owner must {a tradition}.', 'battle-axe', '#b0b6be'],
-    ['Glove of Slapping', 'M1 C2', 'I once slapped {a powerful figure} with this glove, and now {a consequence}.', 'gloves', '#c88a5a'],
-    ['Half-Eaten Spellbook', 'W2 L1', 'A {an animal} ate half my spellbook, so I can only cast spells about {a topic}.', 'spell-book', '#9a5ac8'],
+    ['Rusty Longsword', 'STR1 CON1', 'wields a notched longsword named Grudge.', { type: 'sword', metal: '#b0a090' }, 'broadsword', '#c9ced6'],
+    ['Moonsteel Greatsword', 'STR2', 'swings a greatsword forged under a blue moon.', { type: 'greatsword', metal: '#c8d8f0', glow: '#80c0ff' }, 'broadsword', '#a8c8f0'],
+    ['Dwarven Waraxe', 'STR1 CON1', 'carries a waraxe that has never lost an argument.', { type: 'axe', metal: '#a8a8b0' }, 'battle-axe', '#b0b6be'],
+    ['Executioner\'s Greataxe', 'STR2', 'hefts a greataxe nobody likes to ask about.', { type: 'greataxe', metal: '#7a7a82' }, 'sharp-axe', '#9a9aa2'],
+    ['Thunder Hammer', 'STR1 CON1', 'bears a hammer that rumbles before every swing.', { type: 'warhammer', metal: '#8a8a92', glow: '#80d0ff' }, 'warhammer', '#9aa0a8'],
+    ['Sunburst Mace', 'STR1 WIS1', 'smites with a mace that glows like dawn.', { type: 'mace', metal: '#e0c050', glow: '#fff0a0' }, 'flanged-mace', '#e8c050'],
+    ['Wavebreaker Spear', 'DEX1 STR1', 'fights with a coral spear taken from a sea serpent.', { type: 'spear', metal: '#e08a7a' }, 'spear-hook', '#e08a7a'],
+    ['Staff of Stars', 'INT2', 'leans on a staff with a captured star at its tip.', { type: 'staff', wood: '#4a3a5a', glow: '#c0a0ff' }, 'crystal-wand', '#c0a0ff'],
+    ['Wand of Sparks', 'CHA1 INT1', 'twirls a wand that sneezes sparks.', { type: 'wand', wood: '#6a3a2a', glow: '#ffb040' }, 'fairy-wand', '#ffb040'],
+    ['Elven Longbow', 'DEX2', 'draws an elven bow that whispers before it fires.', { type: 'bow', wood: '#b08a4a' }, 'bow-arrow', '#b08a4a'],
+    ['Gnomish Crossbow', 'DEX1 INT1', 'aims a gnomish crossbow with far too many dials.', { type: 'crossbow', wood: '#7a4a2a', metal: '#c8a040' }, 'crossbow', '#b07a3a'],
+    ['Twin Shadow Daggers', 'DEX2', 'hides a pair of daggers that drink the light.', { type: 'daggers', metal: '#4a4a5a', glow: '#a060ff' }, 'daggers', '#8a7ab0'],
+    ['Reaper\'s Scythe', 'STR1 INT1', 'carries a scythe that hums a funeral tune.', { type: 'scythe', metal: '#b8c0c8', glow: '#80ff9a' }, 'scythe', '#b8c0c8'],
+    ['Morningstar Flail', 'STR1 DEX1', 'whirls a spiked flail with a mind of its own.', { type: 'flail', metal: '#8a8a92' }, 'flail', '#9a9aa2'],
+    ['Lute of Thunder', 'CHA2', 'strums a lute whose chords crack like thunder.', { type: 'lute', wood: '#c08a4a' }, 'guitar', '#c08a4a'],
   ],
-  Trinket: [
-    ['Mysterious Locket', 'C1 L2', 'Inside the locket is a portrait of {a person}, whom I {a relationship verb}.', 'heart-necklace', '#e0b050'],
-    ['Bag of Holding (Small)', 'W1 L2', 'My bag holds exactly {a number} {a thing, plural}, and nothing else, ever.', 'swap-bag', '#b08a5a'],
-    ['Map to Nowhere', 'W2 L1', 'This map leads to {a place}, but only when you {an action}.', 'treasure-map', '#d8c08a'],
-    ['Lucky Coin', 'L3', 'I flip this coin before every decision, ever since it saved me from {a danger}.', 'two-coins', '#e8c040'],
-    ['Cracked Crystal Ball', 'W3', 'My crystal ball only shows visions of {a boring thing}.', 'crystal-ball', '#8ac8e8'],
-    ["Noble's Signet Ring", 'C2 L1', 'I won this ring from {a noble name} in a game of {a game}.', 'diamond-ring', '#e0b040'],
-    ['Jar of Fireflies', 'W1 C2', 'The fireflies spell out "{a word}" whenever danger is near.', 'mason-jar', '#d8e86a'],
-    ['Severed Troll Finger', 'M2 L1', 'The troll wants this finger back and has sent me {a number} angry letters.', 'severed-hand', '#7aa05a'],
-    ["A Villain's Diary", 'W2 C1', "The diary's most embarrassing entry is about {an embarrassing thing}.", 'evil-book', '#a04a5a'],
-    ['Horn of Summoning', 'M1 C1 L1', 'When I blow this horn, {a creature} arrives, feeling {an emotion} about it.', 'hunting-horn', '#d8b080'],
-    ['Potion of Unknown Effect', 'L3', "I'm saving this potion for when {a situation}.", 'magic-potion', '#d060e0'],
-    ['Wanted Poster (of Me)', 'C1 L2', "I'm wanted for {a crime}, with a reward of {a reward}.", 'wanted-reward', '#d8c08a'],
-    ['Talking Skull', 'W2 C1', 'The skull, named {a name}, will not stop talking about {a topic}.', 'death-skull', '#e8e0c8'],
-    ['Iron Boots', 'M3', 'These boots are so heavy I once sank straight through {a place}.', 'metal-boot', '#9aa0a8'],
-    ['Phoenix Feather', 'M1 W1 C1', 'The feather bursts into flame whenever someone says "{a word}".', 'feather', '#f07a2a'],
+  Armor: [
+    ['Studded Leather', 'DEX1 CON1', 'wears studded leather oiled with dragon fat.', { main: '#5a3a22', metal: false }, 'leather-vest', '#a0683a'],
+    ['Chainmail Hauberk', 'CON2', 'clinks along in a chainmail coat three sizes too big.', { main: '#8a9098', metal: true, rough: true }, 'chain-mail', '#a8aeb8'],
+    ['Gilded Full Plate', 'CON1 CHA1', 'shines in gilded plate that blinds lesser foes.', { main: '#d8b040', metal: true, add: ['pauldrons'] }, 'breastplate', '#e0b848'],
+    ['Robes of the Archmage', 'INT2', 'wears robes stitched with moving constellations.', { main: '#1a2a5a', accent: '#c0a0ff', glowTrim: true }, 'robe', '#8a7ae0'],
+    ['Wolf-Pelt Mantle', 'STR1 CON1', 'wears the pelt of the wolf that bit them first.', { add: ['furMantle'] }, 'wolf-head', '#a0a0a8'],
+    ['Spiked Pauldrons', 'STR2', 'wears spiked pauldrons that ruin every hug.', { add: ['spikedPauldrons'] }, 'shoulder-armor', '#7a7a82'],
+    ['Elven Mithral Shirt', 'DEX2', 'wears a mithral shirt light as a whisper.', { main: '#d8e0e8', metal: true }, 'chain-mail', '#e8f0f8'],
+    ['Dragonscale Coat', 'CON1 CHA1', 'wears a coat of red dragon scales, still warm.', { main: '#a02a2a', metal: true, add: ['pauldrons'] }, 'dragon-shield', '#d04a4a'],
+    ['Bone Armor', 'CON1 INT1', 'rattles in armor carved from giant bones.', { main: '#d8d0b8', add: ['skullPauldron'] }, 'ribcage', '#e8e0c8'],
+    ['Crimson Cape', 'CHA2', 'sweeps a crimson cape at every possible moment.', { cape: '#a8202a' }, 'cape', '#d03a3a'],
+    ['Royal Tabard', 'CHA1 WIS1', 'wears the tabard of a kingdom that no longer exists.', { accent: '#2a4aa0', add: ['tabard'] }, 'checked-shield', '#4a6ad0'],
+    ['Shadowweave Cloak', 'DEX1 CHA1', 'wears a cloak woven from a moonless night.', { cape: '#14121c', add: ['hood'] }, 'hood', '#5a5a7a'],
+    ['Druidic Leaf Mantle', 'WIS2', 'wears a mantle of leaves that never wilt.', { add: ['leafMantle'] }, 'oak-leaf', '#6ab04a'],
+    ['Stormforged Plate', 'CON1 STR1', 'wears plate that crackles with captured lightning.', { main: '#4a5a7a', metal: true, accent: '#80d0ff', glowTrim: true, add: ['pauldrons'] }, 'lightning-helix', '#80d0ff'],
+    ['Jester\'s Motley', 'CHA1 DEX1', 'wears jester\'s motley, bells and all.', { main: '#c03a3a', accent: '#e8c030', add: ['jesterHat'] }, 'jester-hat', '#e05a5a'],
   ],
   Companion: [
-    ['Grumpy Mule', 'M2 L1', 'My mule, {a name}, refuses to move unless I {an action}.', 'donkey', '#a08a7a'],
-    ['Pet Rock', 'L3', 'My rock is named {a name}, and it is my best friend because {a reason}.', 'stone-pile', '#a8a8a8'],
-    ['Tiny Dragon', 'M1 W1 C1', 'My dragon is the size of {an object} and breathes {a substance}.', 'wyvern', '#d04a4a'],
-    ['Disgraced Squire', 'M1 C2', 'My squire, {a name}, follows me because I owe them {a thing}.', 'hooded-figure', '#8a9a6a'],
-    ['Ghost Cat', 'W1 L2', 'My cat has died {a number} times and now haunts {an object}.', 'cat', '#b8c8f0'],
-    ['Opinionated Crow', 'W2 C1', 'My crow gossips about {a topic} and steals {an item}.', 'crow-dive', '#5a5a6a'],
-    ['Loyal Mimic', 'M2 W1', 'My mimic eats {a thing} and loves being {an action}.', 'mimic-chest', '#a8703a'],
-    ['Retired Hero', 'W2 C1', 'Old {a hero name} tags along to relive the time they {a heroic deed}.', 'mounted-knight', '#c0c6d0'],
-    ['Swarm of Bees', 'M1 L2', 'My bees only obey me after I {a ritual}.', 'bee', '#e8b830'],
-    ['Empty Suit of Armor', 'M3', 'The empty armor has followed me ever since I {an action} at {a place}.', 'black-knight-helm', '#8a9098'],
-    ['Fairy Lawyer', 'W1 C2', 'My fairy lawyer once got me out of {a charge} by arguing {an argument}.', 'fairy', '#e0a0f0'],
-    ['Very Large Frog', 'M1 C1 L1', 'My frog, {a name}, can swallow {an object} whole.', 'frog', '#6ab04a'],
-    ['Imaginary Friend', 'C1 L2', "Nobody else can see {a name}, but they're amazing at {a skill}.", 'shadow-follower', '#8a7ac8'],
-    ['Owlbear Cub', 'M2 C1', 'I found my owlbear cub in {a place}, eating {a food}.', 'bear-face', '#a07a5a'],
-    ['Haunted Puppet', 'W3', 'My puppet speaks only in {a style of speech}, and it is usually right.', 'puppet', '#d09a7a'],
+    ['Black Cat', 'DEX1 CHA1', 'is followed by a black cat that judges everyone.', { type: 'cat', color: '#1e1e24' }, 'cat', '#6a6a7a'],
+    ['Dire Wolf Pup', 'STR1 WIS1', 'raised a dire wolf pup that is no longer a pup.', { type: 'wolf', color: '#7a7a82' }, 'wolf-head', '#a0a0a8'],
+    ['Wise Owl', 'INT1 WIS1', 'travels with an owl who knows everything and says nothing.', { type: 'owl', color: '#8a6a4a' }, 'barn-owl', '#c8a070'],
+    ['Raven Familiar', 'INT1 CHA1', 'keeps a raven that steals shiny secrets.', { type: 'raven', color: '#1a1a22' }, 'raven', '#5a5a6a'],
+    ['Dragon Whelp', 'CHA1 CON1', 'hatched a dragon whelp that sets small things on fire.', { type: 'dragon', color: '#c03a2a' }, 'wyvern', '#d04a4a'],
+    ['Enormous Toad', 'CON2', 'rides with an enormous toad named Sir Croaksworth.', { type: 'toad', color: '#6a8a3a' }, 'frog', '#6ab04a'],
+    ['Stubborn Mule', 'STR1 CON1', 'leads a stubborn mule that only moves for apples.', { type: 'mule', color: '#8a7060' }, 'donkey', '#a08a7a'],
+    ['War Boar', 'STR2', 'charges into battle beside a war boar.', { type: 'boar', color: '#5a4030' }, 'boar', '#8a6a5a'],
+    ['Clever Fox', 'DEX1 INT1', 'shares every scheme with a clever red fox.', { type: 'fox', color: '#d0682a' }, 'fox-head', '#e07a3a'],
+    ['Bear Cub', 'STR1 WIS1', 'adopted a bear cub who gives crushing hugs.', { type: 'bear', color: '#6a4a2a' }, 'bear-face', '#a07a5a'],
+    ['Floating Skull', 'INT2', 'is haunted by a floating skull that loves to chat.', { type: 'skull', color: '#e8e0c8', glow: '#80ff9a' }, 'death-skull', '#e8e0c8'],
+    ['Will-o\'-Wisp', 'WIS1 CHA1', 'is led astray by a friendly will-o\'-wisp.', { type: 'wisp', color: '#a0e0ff', glow: '#a0e0ff' }, 'sparkles', '#a0e0ff'],
+    ['Pet Imp', 'CHA1 DEX1', 'bargained for a pet imp who reads the fine print.', { type: 'imp', color: '#b83a3a' }, 'imp', '#d04a4a'],
+    ['Gelatinous Cube (Tiny)', 'CON1 INT1', 'keeps a tiny gelatinous cube as a lunchbox.', { type: 'slime', color: '#60d0a0' }, 'transparent-slime', '#60d0a0'],
+    ['Hunting Hawk', 'DEX1 WIS1', 'hunts with a hawk that never misses.', { type: 'hawk', color: '#8a5a2a' }, 'eagle-head', '#c08a4a'],
+  ],
+  Relic: [
+    ['Orb of Whispers', 'INT1 WIS1', 'carries an orb that whispers tomorrow\'s weather.', { type: 'orb', color: '#a070ff' }, 'crystal-ball', '#a070ff'],
+    ['Amulet of the Fallen', 'CHA1 CON1', 'wears the amulet of a hero who fell too soon.', { type: 'amulet', color: '#e0b040' }, 'gem-pendant', '#e0b040'],
+    ['Forbidden Tome', 'INT2', 'reads a forbidden tome that reads back.', { type: 'tome', color: '#6a1a2a' }, 'evil-book', '#a04a5a'],
+    ['Everburning Lantern', 'WIS2', 'carries a lantern that has never gone out.', { type: 'lantern', color: '#ffc040' }, 'lantern-flame', '#ffc040'],
+    ['Horn of Valhalla', 'STR1 CHA1', 'carries a horn that calls spirit warriors.', { type: 'horn', color: '#d8b080' }, 'hunting-horn', '#d8b080'],
+    ['Ancestor\'s Skull', 'WIS1 INT1', 'consults an ancestor\'s skull in hard times.', { type: 'skull', color: '#e8e0c8' }, 'skull-crack', '#e8e0c8'],
+    ['Potion of Giant Strength', 'STR2', 'is saving a potion of giant strength for the right moment.', { type: 'potion', color: '#e05a2a' }, 'magic-potion', '#e05a2a'],
+    ['Heartstone Crystal', 'CON2', 'holds a crystal that beats like a heart.', { type: 'crystal', color: '#e04a7a' }, 'crystal-growth', '#e04a7a'],
+    ['Sacred Holy Symbol', 'WIS1 CHA1', 'holds a holy symbol blessed by a forgotten god.', { type: 'holy', color: '#f0d060' }, 'ankh', '#f0d060'],
+    ['Lucky Golden D20', 'DEX1 CHA1', 'rolls a golden d20 before every big decision.', { type: 'd20', color: '#e8c040' }, 'dice-twenty-faces-twenty', '#e8c040'],
+    ['Runestone of the North', 'STR1 WIS1', 'carries a runestone carved by frost giants.', { type: 'rune', color: '#80d0ff' }, 'rune-stone', '#80d0ff'],
+    ['Hourglass of Moments', 'INT1 DEX1', 'can turn back a single moment with a stolen hourglass.', { type: 'hourglass', color: '#d8c080' }, 'hourglass', '#d8c080'],
+    ['Phoenix Feather', 'CON1 CHA1', 'keeps a phoenix feather that once brought them back.', { type: 'feather', color: '#ff7a2a' }, 'feather', '#ff7a2a'],
+    ['Mirror of Truth', 'WIS1 INT1', 'owns a mirror that shows only the truth, rudely.', { type: 'mirror', color: '#c8d8e8' }, 'mirror-mirror', '#c8d8e8'],
+    ['Skeleton Key', 'DEX2', 'has a skeleton key that opens any door, once.', { type: 'key', color: '#c8a040' }, 'key', '#c8a040'],
   ],
   Secret: [
-    ['Afraid of Ducks', 'C1 L2', "I'm terrified of ducks because of {an incident} at {a place}.", 'duck', '#e8c040'],
-    ['Secretly a Vampire', 'M2 W1', "I'm secretly a vampire, but I only drink {a beverage}.", 'vampire-dracula', '#c03040'],
-    ["Thieves' Guild Debt", 'C1 L2', "I owe the Thieves' Guild {an amount} for {a purchase}.", 'robber', '#8a8a9a'],
-    ['Prophesied Doom', 'W2 L1', 'A prophecy says I will {a fate} on the day of {an event}.', 'scroll-unfurled', '#d8c08a'],
-    ["Can't Swim", 'M1 L2', "I can't swim, which is awkward because I'm {a profession}.", 'drowning', '#5a8ae0'],
-    ['Compulsive Liar', 'C3', 'My biggest lie is that I {a lie}.', 'lips', '#e05070'],
-    ["The Dark Lord's Ex", 'W1 C2', 'I once dated the Dark Lord, who dumped me because {a reason}.', 'broken-heart', '#e04050'],
-    ['Allergic to Magic', 'M3', 'Magic makes me {a reaction}, so I always {a coping strategy}.', 'magic-swirl', '#7ae0c0'],
-    ['Shapeshifter (Bread Only)', 'W1 L2', 'I can turn into {a type of bread}, which has saved my life {a number} times.', 'bread', '#d8a060'],
-    ['The Twin Swap', 'W2 C1', "I'm actually my twin, {a name}. The real me {what happened}.", 'double-face-mask', '#d0c0b0'],
-    ['Cowardly Heart', 'W2 L1', 'I once fled from {a monster} and blamed it on {a person}.', 'run', '#b0b0b0'],
-    ['Cursed Sneeze', 'L3', 'Every time I sneeze, {a thing} appears.', 'nose-front', '#e8a080'],
-    ['Royal Spy', 'W2 C1', 'I report every secret to {a monarch}, using {a method}.', 'cloak-dagger', '#7a7aa0'],
-    ['Bad With Names', 'C1 L2', 'I call everyone "{a name}", ever since {an incident}.', 'price-tag', '#d8c08a'],
-    ['Berserker Rage', 'M2 L1', 'I fly into a rage whenever someone mentions {a topic}.', 'enrage', '#f04020'],
+    ['Cursed Bloodline', 'CHA1 CON1', 'secretly carries a family curse that wakes at midnight.', { aura: '#a040ff' }, 'cursed-star', '#a040ff'],
+    ['Chosen by Prophecy', 'WIS1 CHA1', 'is secretly the chosen one, and hates it.', { aura: '#ffe080' }, 'scroll-unfurled', '#ffe080'],
+    ['Pact with a Demon', 'CHA2', 'secretly owes their soul to a demon with a lawyer.', { aura: '#ff3a2a' }, 'devil-mask', '#ff5a3a'],
+    ['Lost Royal Heir', 'CHA1 INT1', 'is secretly heir to a fallen throne.', { aura: '#e8c040' }, 'crown', '#e8c040'],
+    ['Former Villain', 'STR1 INT1', 'was once a feared villain and hopes nobody remembers.', { aura: '#4a2a5a' }, 'evil-minion', '#8a5aa0'],
+    ['Afraid of Ducks', 'DEX1 WIS1', 'is terrified of ducks for reasons they will not discuss.', { aura: '#e8d040' }, 'duck', '#e8c040'],
+    ['Secret Twin', 'DEX1 CHA1', 'is actually their own twin, and the real one is missing.', { aura: '#a0a0b0' }, 'double-face-mask', '#d0c0b0'],
+    ['Lycanthrope', 'STR1 CON1', 'secretly turns into a wolf when the moon is full.', { aura: '#c8d0ff' }, 'werewolf', '#a0a8d0'],
+    ['Frozen Heart', 'CON2', 'had their heart frozen by a winter witch.', { aura: '#80e0ff' }, 'frozen-orb', '#80e0ff'],
+    ['Living Flame', 'CON1 CHA1', 'has a fire elemental living in their chest.', { aura: '#ff8a20' }, 'fire', '#ff8a20'],
+    ['Spy for the Crown', 'INT1 DEX1', 'secretly reports every move to the crown.', { aura: '#5a6a8a' }, 'cloak-dagger', '#7a7aa0'],
+    ['Touched by the Fey', 'WIS1 CHA1', 'owes a fey queen a favor she will collect.', { aura: '#7aff9a' }, 'fairy', '#e0a0f0'],
+    ['Already Dead', 'CON1 WIS1', 'died last year and simply didn\'t stop.', { aura: '#7ad05a' }, 'tombstone', '#9ab08a'],
+    ['Dragon in Disguise', 'STR1 CHA1', 'is secretly a dragon in a borrowed body.', { aura: '#ff4a2a' }, 'dragon-head', '#d04a4a'],
+    ['Berserker Rage', 'STR2', 'loses control whenever someone insults their hat.', { aura: '#ff2020' }, 'enrage', '#f04020'],
   ],
 }
 
 export const ROUNDS = Object.keys(RAW)
 
 export const ROUND_INTROS = {
-  Origin: 'Where does your story begin?',
   Weapon: 'What do you carry into battle?',
-  Trinket: 'What strange thing hangs from your belt?',
+  Armor: 'What protects you from the blades of your enemies?',
   Companion: 'Who (or what) travels at your side?',
+  Relic: 'What strange treasure do you carry?',
   Secret: 'What do you hide from the party?',
 }
 
 function parseStats(s) {
   const out = {}
-  for (const part of s.split(' ')) out[part[0]] = Number(part.slice(1))
+  for (const part of s.split(' ')) out[part.slice(0, 3)] = Number(part.slice(3))
   return out
 }
 
 export const CARDS = {}
 for (const [category, list] of Object.entries(RAW)) {
-  list.forEach(([name, stats, template, icon, color, look], i) => {
+  list.forEach(([name, stats, line, model, icon, color], i) => {
     const id = `${category}-${i}`
-    CARDS[id] = { id, category, name, stats: parseStats(stats), template, icon, color, look }
+    CARDS[id] = { id, category, name, stats: parseStats(stats), line, model, icon, color }
   })
 }
 
 export function cardsIn(category) {
   return Object.values(CARDS).filter((c) => c.category === category)
 }
-
-// Splits a template into text and blank parts: [{text}, {blank, index}, ...]
-export function parseTemplate(template) {
-  const parts = []
-  let blank = 0
-  for (const piece of template.split(/(\{[^}]+\})/)) {
-    if (!piece) continue
-    if (piece.startsWith('{')) parts.push({ hint: piece.slice(1, -1), index: blank++ })
-    else parts.push({ text: piece })
-  }
-  return parts
-}
-

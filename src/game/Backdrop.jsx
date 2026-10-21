@@ -3,7 +3,7 @@ import Icon from './Icon'
 // Painted night scene behind every screen. The sky shifts with the phase.
 const SKIES = {
   lobby: ['#0d0b1e', '#2a1f4a', '#6b3a5a'],
-  naming: ['#0b1424', '#1f3550', '#5a6a7a'],
+  forge: ['#140a10', '#3a1a1a', '#b0502a'],
   creating: ['#140d24', '#3a2350', '#a0583a'],
   reveal: ['#1a0d10', '#4a1f2a', '#d0803a'],
   voting: ['#0d0b1e', '#2a1f4a', '#c0703a'],

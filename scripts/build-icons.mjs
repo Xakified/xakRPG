@@ -4,9 +4,15 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 
 const all = JSON.parse(readFileSync(new URL('../node_modules/@iconify-json/game-icons/icons.json', import.meta.url)))
-const cards = readFileSync(new URL('../src/game/cards.js', import.meta.url), 'utf8')
-const extra = ['castle', 'elven-castle', 'scroll-quill', 'tavern-sign', 'laurel-crown', 'crossed-swords', 'dice-twenty-faces-twenty', 'speaker', 'speaker-off']
-const names = new Set([...[...cards.matchAll(/, '([a-z0-9-]+)', '#[0-9a-f]{6}'/g)].map((m) => m[1]), ...extra])
+const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
+const cards = read('../src/game/cards.js')
+const classes = read('../src/game/data/classes.js')
+const extra = ['anvil-impact', 'breastplate', 'wyvern', 'crystal-ball', 'cloak-dagger', 'castle', 'elven-castle', 'scroll-quill', 'tavern-sign', 'laurel-crown', 'crossed-swords', 'dice-twenty-faces-twenty', 'speaker', 'speaker-off']
+const names = new Set([
+  ...[...cards.matchAll(/, '([a-z0-9-]+)', '#[0-9a-f]{6}'\]/g)].map((m) => m[1]),
+  ...[...classes.matchAll(/icon: '([a-z0-9-]+)'/g)].map((m) => m[1]),
+  ...extra,
+])
 
 const icons = {}
 for (const name of names) {

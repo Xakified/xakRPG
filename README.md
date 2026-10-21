@@ -1,6 +1,10 @@
 # xakRPG
 
-A story-driven fantasy RPG for up to 5 friends. Everyone joins a room with a 4-letter code, then builds a hero over five chapters (Origin, Weapon, Trinket, Companion, Secret). Each chapter you pick one of three cards and fill in its ad-lib blanks to write your backstory. Cards add Might, Wits, Charm and Luck. At the end each legend is read aloud and the table votes for their favourite.
+A fantasy character-creation RPG for up to 5 friends. Everyone joins a room with a 4-letter code, then:
+
+1. **Forges a hero** in a 3D creator: any of the 67 playable D&D 5e races, body shape (slim to fat, frail to muscular, breasts or not), skin, 24 hairstyles, hair and eye colors, facial hair, then one of 13 classes and a name.
+2. **Drafts five chapters** together: Weapon, Armor, Companion, Relic and Secret. Each player is dealt three cards; every pick shows up on the 3D model and adds to their ability scores (STR, DEX, CON, INT, WIS, CHA) and their legend.
+3. **Tells the legends** one hero at a time, then the table votes for their favorite.
 
 Rooms run on Supabase Realtime (presence + broadcast), so no database tables are needed. The first player in a room is the host and keeps the game state; if they leave, the next player takes over.
 
@@ -22,7 +26,8 @@ Without Supabase keys the game runs in offline mode: open several tabs in the sa
 
 ## Where things live
 - `src/lib/room.js` — room codes, presence, messaging (Supabase or offline)
-- `src/game/cards.js` — all card content; add cards here
+- `src/game/cards.js` — draft card content; add cards here
+- `src/game/Forge.jsx` — the character creator
 - `src/game/engine.js` — game rules (host-side reducer)
 - `src/game/Game.jsx` — screens for each phase
 - `src/game/Backdrop.jsx` — the painted night-sky background
