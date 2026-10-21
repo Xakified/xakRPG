@@ -3,6 +3,9 @@ import { supabaseConfigured, supabaseError } from './lib/supabase'
 import { MAX_PLAYERS, joinRoom, makePlayerId, makeRoomCode } from './lib/room'
 import { newGame, prune, reduce } from './game/engine'
 import Game from './game/Game'
+import Backdrop from './game/Backdrop'
+import MusicToggle from './game/MusicToggle'
+import Icon from './game/Icon'
 
 export default function App() {
   const [name, setName] = useState('')
@@ -96,11 +99,17 @@ export default function App() {
     roomRef.current.update(playerRef.current)
   }
 
+  const me = playerRef.current
+  const isHost = players[0]?.id === me.id
+  const allReady = players.length > 0 && players.every((p) => p.ready)
+  let screen
+
   if (!room) {
-    return (
+    screen = (
       <main className="card">
-        <h1>xakRPG</h1>
-        <p className="muted">Gather up to {MAX_PLAYERS} adventurers and write your legends together.</p>
+        <Icon name="crossed-swords" color="#e2b448" size={64} className="crest" />
+        <h1 className="title">xakRPG</h1>
+        <p className="intro center">Gather up to {MAX_PLAYERS} adventurers and write your legends together.</p>
         <input placeholder="Your name" value={name} maxLength={20} onChange={(e) => setName(e.target.value)} />
         <button onClick={() => enter(makeRoomCode())}>Create room</button>
         <div className="row">
@@ -117,15 +126,13 @@ export default function App() {
         {!supabaseConfigured && (
           <p className="muted small">Offline mode: rooms only work between tabs in this browser. Add Supabase keys to <code>.env</code> to play with friends.</p>
         )}
+        <p className="muted small center">
+          Icons by Lorc, Delapouite and contributors at <a href="https://game-icons.net">game-icons.net</a> (CC BY 3.0)
+        </p>
       </main>
     )
-  }
-
-  const me = playerRef.current
-  const isHost = players[0]?.id === me.id
-
-  if (game) {
-    return (
+  } else if (game) {
+    screen = (
       <Game
         state={game}
         me={me.id}
@@ -135,29 +142,37 @@ export default function App() {
         onLeave={leave}
       />
     )
+  } else {
+    screen = (
+      <main className="card">
+        <Icon name="tavern-sign" color="#e2b448" size={56} className="crest" />
+        <h1 className="center">The tavern is open</h1>
+        <p className="center">Room code <span className="code">{room}</span></p>
+        <p className="muted center">Share this code with up to {MAX_PLAYERS - 1} friends.</p>
+        <ul className="players">
+          {players.map((p, i) => (
+            <li key={p.id}>
+              <span>{p.name}{i === 0 && ' 👑'}{p.id === me.id && ' (you)'}</span>
+              <span className={p.ready ? 'ready' : 'muted'}>{p.ready ? 'ready' : 'waiting'}</span>
+            </li>
+          ))}
+        </ul>
+        <button onClick={toggleReady}>{me.ready ? 'Not ready' : 'Ready'}</button>
+        {isHost && (
+          <button disabled={!allReady} onClick={() => publish(newGame(players))}>
+            Begin the tale
+          </button>
+        )}
+        <button className="link" onClick={leave}>Leave room</button>
+      </main>
+    )
   }
 
-  const allReady = players.length > 0 && players.every((p) => p.ready)
-
   return (
-    <main className="card">
-      <h1>Room <span className="code">{room}</span></h1>
-      <p className="muted">Share this code with up to {MAX_PLAYERS - 1} friends.</p>
-      <ul className="players">
-        {players.map((p, i) => (
-          <li key={p.id}>
-            <span>{p.name}{i === 0 && ' 👑'}{p.id === me.id && ' (you)'}</span>
-            <span className={p.ready ? 'ready' : 'muted'}>{p.ready ? 'ready' : 'waiting'}</span>
-          </li>
-        ))}
-      </ul>
-      <button onClick={toggleReady}>{me.ready ? 'Not ready' : 'Ready'}</button>
-      {isHost && (
-        <button disabled={!allReady} onClick={() => publish(newGame(players))}>
-          Begin the tale
-        </button>
-      )}
-      <button className="link" onClick={leave}>Leave room</button>
-    </main>
+    <>
+      <Backdrop phase={game?.phase || 'lobby'} />
+      <MusicToggle />
+      {screen}
+    </>
   )
 }
