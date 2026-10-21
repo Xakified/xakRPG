@@ -1,54 +1,43 @@
-import { CARDS, ROUNDS, cardsIn } from './cards'
 import { RACE_BY_ID } from './data/races'
-import { ABILITIES, CLASS_BY_ID, baseScores } from './data/classes'
+import { CLASS_BY_ID } from './data/classes'
 import { cleanLook } from './data/looks'
+import { WEAPONS, STARTING_WEAPONS } from './combat/weapons'
+import { ITEMS, rollOffers } from './combat/loot'
+import { SKILLS } from './combat/skills'
+import { LEVELS } from './combat/enemies'
+import { TAG_COLORS, enemyStep, heroAction, heroScores, heroTags, removeHero, startBattle } from './combat/battle'
 
 // The host owns the authoritative game state. Everyone else sends actions to
 // the host, which runs them through reduce() and broadcasts the new state.
+//
+// A run: forge heroes → battle → level-up pick → battle … → dragon → victory.
+// Losing any battle ends the run.
 
-const HAND_SIZE = 3
+export const STAGES = LEVELS.length
 
-function shuffle(list) {
-  const a = [...list]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-function deal(state) {
-  const deck = shuffle(cardsIn(ROUNDS[state.round]).map((c) => c.id))
-  const hands = {}
-  state.order.forEach((id, i) => {
-    hands[id] = deck.slice(i * HAND_SIZE, (i + 1) * HAND_SIZE)
-  })
-  return { ...state, phase: 'creating', hands, submitted: {} }
-}
-
-export function newGame(players) {
+export function newGame(players, previous = {}) {
   const heroes = {}
-  for (const p of players) heroes[p.id] = { player: p.name, heroName: '', race: null, cls: null, look: null, picks: [] }
+  for (const p of players) {
+    const prev = previous[p.id]
+    heroes[p.id] = {
+      player: p.name, heroName: '', race: null, cls: null, look: null, weapon: null, items: [], skills: [], level: 1,
+      last: prev ? { heroName: prev.heroName, race: prev.race, cls: prev.cls, look: prev.look, weapon: prev.weapon } : null,
+    }
+  }
   return {
     phase: 'forge',
     order: players.map((p) => p.id),
     heroes,
-    round: 0,
-    hands: {},
     submitted: {},
-    revealIndex: 0,
-    votes: {},
+    stage: 0,
+    seed: Math.floor(Math.random() * 1e6),
+    battle: null,
+    offers: {},
   }
 }
 
 export function heroStats(hero) {
-  const stats = hero.cls ? baseScores(hero.cls) : Object.fromEntries(ABILITIES.map((a) => [a, 10]))
-  const race = RACE_BY_ID[hero.race]
-  for (const [k, v] of Object.entries(race?.asi || {})) stats[k] += v
-  for (const pick of hero.picks) {
-    for (const [k, v] of Object.entries(CARDS[pick.cardId].stats)) stats[k] += v
-  }
-  return stats
+  return hero.cls ? heroScores(hero) : { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 }
 }
 
 export function heroTitle(hero) {
@@ -57,25 +46,42 @@ export function heroTitle(hero) {
   return race && cls ? `${hero.heroName}, ${race.name} ${cls.name}` : hero.heroName
 }
 
-// What the 3D viewer needs. `preview` is a card being considered.
+// What the 3D model needs. `preview` is a loot offer being considered.
 export function heroSpec(hero, preview) {
-  const picks = {}
-  for (const { cardId } of hero.picks) picks[CARDS[cardId].category] = CARDS[cardId].model
-  if (preview) picks[preview.category] = preview.model
-  return { race: hero.race, cls: hero.cls, look: hero.look, picks }
-}
-
-export function legend(hero) {
-  const race = RACE_BY_ID[hero.race]
-  const cls = CLASS_BY_ID[hero.cls]
-  const lines = [`${hero.heroName} is a ${race.name} ${cls.name}. ${race.blurb} ${cls.blurb}`]
-  for (const { cardId } of hero.picks) lines.push(`${hero.heroName} ${CARDS[cardId].line}`)
-  return lines
+  const itemIds = [...(hero.items || []), ...(preview?.kind === 'item' ? [preview.id] : [])]
+  const items = itemIds.map((id) => ITEMS[id])
+  const skills = [...(hero.skills || []), ...(preview?.kind === 'skill' ? [preview.id] : [])]
+  const latest = (slot) => items.filter((it) => it.slot === slot).pop()
+  const weapon = WEAPONS[hero.weapon] ? { ...WEAPONS[hero.weapon].model } : undefined
+  const enchant = items.filter((it) => it.glow).pop()
+  if (weapon && enchant) weapon.glow = enchant.glow
+  const skillAura = skills.map((id) => SKILLS[id].aura).filter(Boolean).pop()
+  const tags = heroTags({ ...hero, items: itemIds, skills })
+  const tagAura = tags.length && items.length + skills.length >= 2 ? TAG_COLORS[tags[0]] : undefined
+  return {
+    race: hero.race || 'human',
+    cls: hero.cls,
+    look: hero.look || undefined,
+    weapon,
+    armor: latest('armor')?.model,
+    relic: latest('relic')?.model,
+    pet: latest('pet')?.model,
+    aura: skillAura || tagAura,
+  }
 }
 
 const everyone = (state, done) => state.order.every((id) => done[id])
 
+function beginStage(state) {
+  return { ...state, phase: 'battle', submitted: {}, offers: {}, battle: startBattle(state) }
+}
+
 export function reduce(state, from, action, isHost) {
+  if (!state) return state
+  if (action.type === 'restart') {
+    if (!isHost || (state.phase !== 'victory' && state.phase !== 'defeat')) return state
+    return newGame(state.order.map((id) => ({ id, name: state.heroes[id].player })), state.heroes)
+  }
   if (!state.order.includes(from)) return state
 
   switch (action.type) {
@@ -83,37 +89,48 @@ export function reduce(state, from, action, isHost) {
       if (state.phase !== 'forge' || state.submitted[from]) return state
       const heroName = String(action.heroName || '').trim().slice(0, 30)
       if (!heroName || !RACE_BY_ID[action.race] || !CLASS_BY_ID[action.cls]) return state
-      const hero = { ...state.heroes[from], heroName, race: action.race, cls: action.cls, look: cleanLook(action.look) }
-      const heroes = { ...state.heroes, [from]: hero }
-      const next = { ...state, heroes, submitted: { ...state.submitted, [from]: true } }
-      return everyone(next, next.submitted) ? deal(next) : next
+      if (!STARTING_WEAPONS[action.cls].includes(action.weapon)) return state
+      const hero = { ...state.heroes[from], heroName, race: action.race, cls: action.cls, look: cleanLook(action.look), weapon: action.weapon }
+      const next = { ...state, heroes: { ...state.heroes, [from]: hero }, submitted: { ...state.submitted, [from]: true } }
+      return everyone(next, next.submitted) ? beginStage(next) : next
+    }
+
+    case 'move':
+    case 'attack':
+    case 'skill':
+    case 'endTurn': {
+      if (state.phase !== 'battle') return state
+      const battle = heroAction(state.battle, from, action)
+      return battle === state.battle ? state : { ...state, battle }
+    }
+
+    case 'enemyStep': {
+      if (!isHost || state.phase !== 'battle') return state
+      const battle = enemyStep(state.battle)
+      return battle === state.battle ? state : { ...state, battle }
+    }
+
+    case 'advance': {
+      if (state.phase !== 'battle' || !state.battle.result) return state
+      if (state.battle.result === 'lose') return { ...state, phase: 'defeat' }
+      if (state.stage + 1 >= STAGES) return { ...state, phase: 'victory' }
+      const heroes = {}
+      const offers = {}
+      for (const id of state.order) {
+        heroes[id] = { ...state.heroes[id], level: state.heroes[id].level + 1 }
+        offers[id] = rollOffers(heroes[id], state.stage + 1, Math.random)
+      }
+      return { ...state, phase: 'loot', heroes, offers, submitted: {} }
     }
 
     case 'pick': {
-      if (state.phase !== 'creating' || state.submitted[from]) return state
-      if (!state.hands[from]?.includes(action.cardId)) return state
+      if (state.phase !== 'loot' || state.submitted[from]) return state
+      const offer = state.offers[from]?.[action.index]
+      if (!offer) return state
       const hero = state.heroes[from]
-      const heroes = {
-        ...state.heroes,
-        [from]: { ...hero, picks: [...hero.picks, { cardId: action.cardId }] },
-      }
-      const next = { ...state, heroes, submitted: { ...state.submitted, [from]: true } }
-      if (!everyone(next, next.submitted)) return next
-      if (next.round + 1 < ROUNDS.length) return deal({ ...next, round: next.round + 1 })
-      return { ...next, phase: 'reveal', revealIndex: 0 }
-    }
-
-    case 'next': {
-      if (!isHost || state.phase !== 'reveal') return state
-      if (state.revealIndex + 1 < state.order.length) return { ...state, revealIndex: state.revealIndex + 1 }
-      return { ...state, phase: state.order.length > 1 ? 'voting' : 'results' }
-    }
-
-    case 'vote': {
-      if (state.phase !== 'voting' || state.votes[from]) return state
-      if (action.target === from || !state.order.includes(action.target)) return state
-      const votes = { ...state.votes, [from]: action.target }
-      return { ...state, votes, phase: everyone(state, votes) ? 'results' : 'voting' }
+      const gained = offer.kind === 'item' ? { items: [...hero.items, offer.id] } : { skills: [...hero.skills, offer.id] }
+      const next = { ...state, heroes: { ...state.heroes, [from]: { ...hero, ...gained } }, submitted: { ...state.submitted, [from]: true } }
+      return everyone(next, next.submitted) ? beginStage({ ...next, stage: next.stage + 1 }) : next
     }
 
     default:
@@ -121,30 +138,15 @@ export function reduce(state, from, action, isHost) {
   }
 }
 
-// Drops players who left mid-game so the round can still finish.
+// Drops players who left mid-run so the party can carry on.
 export function prune(state, presentIds) {
+  const gone = state.order.filter((id) => !presentIds.includes(id))
+  if (!gone.length) return state
   const order = state.order.filter((id) => presentIds.includes(id))
-  if (order.length === state.order.length) return state
   if (order.length === 0) return null
-  const next = {
-    ...state,
-    order,
-    revealIndex: Math.min(state.revealIndex, order.length - 1),
-    votes: Object.fromEntries(Object.entries(state.votes).filter(([k, v]) => order.includes(k) && order.includes(v))),
-  }
-  const done = state.phase === 'voting' ? next.votes : next.submitted
-  if (!everyone(next, done)) return next
-  if (state.phase === 'forge') return deal(next)
-  if (state.phase === 'creating') {
-    return next.round + 1 < ROUNDS.length ? deal({ ...next, round: next.round + 1 }) : { ...next, phase: 'reveal', revealIndex: 0 }
-  }
-  if (state.phase === 'voting') return { ...next, phase: 'results' }
+  let next = { ...state, order }
+  if (state.phase === 'battle') for (const id of gone) next.battle = removeHero(next.battle, id)
+  if (state.phase === 'forge' && everyone(next, next.submitted)) return beginStage(next)
+  if (state.phase === 'loot' && everyone(next, next.submitted)) return beginStage({ ...next, stage: next.stage + 1 })
   return next
-}
-
-export function tally(state) {
-  const counts = Object.fromEntries(state.order.map((id) => [id, 0]))
-  for (const target of Object.values(state.votes)) if (target in counts) counts[target]++
-  const top = Math.max(...Object.values(counts))
-  return { counts, winners: state.order.filter((id) => counts[id] === top && top > 0) }
 }

@@ -144,3 +144,113 @@ export function buildCompanion(spec) {
     default: return null
   }
 }
+
+function spider(c) {
+  const g = new THREE.Group()
+  const m = mat(c, { roughness: 0.55 })
+  const hairy = mat(shade(c, 0.08), { roughness: 0.9 })
+  const legs = []
+  sphere(0.17, m, v(0, 0.2, -0.16), g, [1, 0.85, 1.2])
+  box(0.09, 0.008, 0.12, mat('#c02020', { glow: '#c02020', glowIntensity: 0.6 }), v(0, 0.345, -0.18), g).rotation.x = -0.3
+  sphere(0.1, hairy, v(0, 0.17, 0.06), g, [1, 0.8, 1])
+  sphere(0.065, m, v(0, 0.16, 0.16), g)
+  for (const [x, y] of [[-0.03, 0.19], [0.03, 0.19], [-0.05, 0.175], [0.05, 0.175], [-0.015, 0.205], [0.015, 0.205]]) sphere(0.012, glowMat('#ff3030', 2.5), v(x, y, 0.215), g, null, 8)
+  for (const s of [-1, 1]) aim(cone(0.012, 0.06, mat('#1a1010'), v(s * 0.025, 0.11, 0.2), g, 6), v(s * 0.2, -1, 0.3))
+  for (let i = 0; i < 4; i++) {
+    for (const s of [-1, 1]) {
+      const z = 0.12 - i * 0.07
+      const leg = new THREE.Group()
+      leg.position.set(s * 0.07, 0.17, z)
+      taper([v(0, 0, 0), v(s * 0.16, 0.14, (1.5 - i) * 0.04), v(s * 0.3, -0.02, (1.5 - i) * 0.09), v(s * 0.34, -0.17, (1.5 - i) * 0.1)], 0.018, 0.008, hairy, leg, 6)
+      leg.userData.phase = i * 1.3 + (s > 0 ? Math.PI : 0)
+      g.add(leg)
+      legs.push(leg)
+    }
+  }
+  return { group: g, height: 0.4, update: (t) => legs.forEach((l) => (l.rotation.y = Math.sin(t * 2 + l.userData.phase) * 0.05)) }
+}
+
+function dragonBoss(c) {
+  const g = new THREE.Group()
+  const m = mat(c, { roughness: 0.55, flat: true })
+  const belly = mat('#e8b060', { roughness: 0.6 })
+  const horn = mat('#2a2018', { roughness: 0.4 })
+  const membrane = mat(shade(c, -0.12), { side: THREE.DoubleSide, roughness: 0.7 })
+  // Body and legs
+  sphere(0.22, m, v(0, 0.36, -0.02), g, [1, 0.9, 1.5])
+  sphere(0.17, belly, v(0, 0.3, 0.04), g, [0.9, 0.8, 1.3])
+  for (const [x, z, f] of [[1, 0.2, 1], [-1, 0.2, 1], [1, -0.2, -1], [-1, -0.2, -1]]) {
+    limb(v(x * 0.16, 0.36, z), v(x * 0.2, 0.18, z + f * 0.04), 0.06, m, g)
+    limb(v(x * 0.2, 0.18, z + f * 0.04), v(x * 0.2, 0.04, z + 0.06), 0.045, m, g)
+    for (const k of [-1, 0, 1]) aim(cone(0.012, 0.05, horn, v(x * 0.2 + k * 0.03, 0.02, z + 0.12), g, 5), v(0, 0, 1))
+  }
+  // Neck and head
+  const neck = new THREE.Group()
+  g.add(neck)
+  taper([v(0, 0.42, 0.22), v(0, 0.6, 0.32), v(0, 0.76, 0.36)], 0.09, 0.065, m, neck, 8)
+  const head = new THREE.Group()
+  head.position.set(0, 0.8, 0.4)
+  neck.add(head)
+  sphere(0.09, m, v(0, 0, 0), head, [1, 0.85, 1.1])
+  box(0.1, 0.06, 0.16, m, v(0, -0.01, 0.12), head)
+  box(0.09, 0.025, 0.15, belly, v(0, -0.055, 0.11), head)
+  for (const s of [-1, 1]) {
+    sphere(0.016, glowMat('#ffd040', 3), v(s * 0.05, 0.03, 0.08), head, null, 8)
+    taper([v(s * 0.05, 0.05, -0.04), v(s * 0.09, 0.12, -0.14), v(s * 0.1, 0.13, -0.25)], 0.022, 0.006, horn, head, 6)
+    aim(cone(0.008, 0.03, mat('#f0e8d0'), v(s * 0.035, -0.04, 0.18), head, 5), v(0, -1, 0))
+  }
+  for (let i = 0; i < 5; i++) aim(cone(0.018, 0.06, horn, v(0, 0.6 - i * 0.07 + 0.1, 0.33 - i * 0.07), neck, 5), v(0, 1, -0.4))
+  // Tail
+  taper([v(0, 0.36, -0.3), v(0, 0.24, -0.55), v(0.12, 0.12, -0.78), v(0.28, 0.06, -0.9)], 0.08, 0.015, m, g, 12)
+  aim(cone(0.04, 0.1, horn, v(0.31, 0.06, -0.93), g, 4), v(0.5, 0, -1))
+  // Wings
+  const shape = new THREE.Shape()
+  shape.moveTo(0, 0)
+  shape.lineTo(0.35, 0.42)
+  shape.lineTo(0.82, 0.3)
+  shape.lineTo(0.72, 0.12)
+  shape.lineTo(0.6, 0.16)
+  shape.lineTo(0.5, -0.02)
+  shape.lineTo(0.36, 0.06)
+  shape.lineTo(0.24, -0.1)
+  shape.lineTo(0, 0)
+  const wings = []
+  for (const s of [-1, 1]) {
+    const pivot = new THREE.Group()
+    pivot.position.set(s * 0.12, 0.5, 0.04)
+    const w = new THREE.Mesh(new THREE.ShapeGeometry(shape), membrane)
+    w.scale.x = s
+    w.rotation.x = -0.25
+    pivot.add(w)
+    limb(v(0, 0, 0), v(s * 0.35, 0.42, -0.1), 0.02, m, pivot)
+    limb(v(s * 0.35, 0.42, -0.1), v(s * 0.82, 0.3, -0.2), 0.014, m, pivot)
+    pivot.userData.side = s
+    g.add(pivot)
+    wings.push(pivot)
+  }
+  return {
+    group: g,
+    height: 1.0,
+    update: (t) => {
+      wings.forEach((p) => (p.rotation.y = p.userData.side * (0.5 + Math.sin(t * 1.4) * 0.18)))
+      head.rotation.x = Math.sin(t * 0.9) * 0.06
+      neck.rotation.y = Math.sin(t * 0.5) * 0.08
+    },
+  }
+}
+
+// Enemy creatures on the battlefield: { group, height, update }.
+export function buildMonster(spec) {
+  const scale = spec.scale || 1
+  let built
+  if (spec.type === 'spider') built = spider(spec.color)
+  else if (spec.type === 'dragonBoss') built = dragonBoss(spec.color)
+  else {
+    const pet = buildCompanion(spec)
+    built = { group: pet.group, height: 0.4, update: () => {} }
+  }
+  const root = new THREE.Group()
+  root.add(built.group)
+  built.group.scale.setScalar(scale)
+  return { root, height: built.height * scale, update: built.update }
+}

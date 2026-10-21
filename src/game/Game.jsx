@@ -1,30 +1,40 @@
 import { useState } from 'react'
-import { CARDS, ROUNDS, ROUND_INTROS } from './cards'
-import { heroSpec, heroStats, heroTitle, legend, tally } from './engine'
-import Forge from './Forge'
+import { heroSpec, heroStats, heroTitle, STAGES } from './engine'
+import Battle from './Battle'
+import Forge, { CombatLine, weaponIcon } from './Forge'
 import HeroViewer from './HeroViewer'
 import Icon from './Icon'
-import { AbilityBlock, Bonus } from './Stats'
+import { AbilityBlock } from './Stats'
+import { ITEMS, lootTags } from './combat/loot'
+import { SKILLS } from './combat/skills'
+import { WEAPONS } from './combat/weapons'
+import { LEVELS } from './combat/enemies'
+import { TAG_COLORS, heroCombat, heroTags } from './combat/battle'
 
-const ROUND_ICONS = { Weapon: 'crossed-swords', Armor: 'breastplate', Companion: 'wyvern', Relic: 'crystal-ball', Secret: 'cloak-dagger' }
-
-export default function Game({ state, me, isHost, dispatch, onRestart, onLeave }) {
+export default function Game({ state, me, isHost, dispatch, onLeave }) {
   const playing = state.order.includes(me)
+
+  if (state.phase === 'battle') {
+    return (
+      <>
+        <Battle state={state} me={me} dispatch={dispatch} />
+        <button className="link leave-corner" onClick={onLeave}>Leave</button>
+      </>
+    )
+  }
 
   return (
     <main className="card wide">
-      {!playing && <p className="muted center">A tale is already underway. You're watching, and you'll join the next one.</p>}
+      {!playing && <p className="muted center">A run is already underway. You're watching, and you'll join the next one.</p>}
       {state.phase === 'forge' && (
         <>
-          <Heading icon="anvil-impact" kicker="Prologue" title="Forge your hero" intro="Every legend starts somewhere." />
+          <Heading icon="anvil-impact" kicker="Prologue" title="Forge your hero" intro="Pick a race, a look, a class and a weapon. Then fight." />
           {playing && <Forge hero={state.heroes[me]} done={state.submitted[me]} onSubmit={(hero) => dispatch({ type: 'forge', ...hero })} />}
           <Waiting state={state} done={state.submitted} />
         </>
       )}
-      {state.phase === 'creating' && <Creating key={state.round} state={state} me={me} playing={playing} dispatch={dispatch} />}
-      {state.phase === 'reveal' && <Reveal state={state} isHost={isHost} dispatch={dispatch} />}
-      {state.phase === 'voting' && <Voting state={state} me={me} playing={playing} dispatch={dispatch} />}
-      {state.phase === 'results' && <Results state={state} isHost={isHost} onRestart={onRestart} />}
+      {state.phase === 'loot' && <LevelUp key={state.stage} state={state} me={me} playing={playing} dispatch={dispatch} />}
+      {(state.phase === 'victory' || state.phase === 'defeat') && <Ending state={state} isHost={isHost} dispatch={dispatch} />}
       <button className="link" onClick={onLeave}>Leave room</button>
     </main>
   )
@@ -55,135 +65,130 @@ function Waiting({ state, done }) {
   )
 }
 
-function CardArt({ card, size = 84 }) {
+const RARITY = { common: '#6a5a40', rare: '#1f5ab0', epic: '#8a2ac0' }
+const SLOT = { weapon: 'Weapon enchant', armor: 'Armor', relic: 'Relic', pet: 'Companion', tome: 'Tome' }
+
+export function offerInfo(offer) {
+  if (offer.kind === 'skill') {
+    const s = SKILLS[offer.id]
+    return { name: s.name, icon: s.icon, desc: s.desc, type: `Skill · cooldown ${s.cd}`, color: s.aura || '#c8a0ff' }
+  }
+  const it = ITEMS[offer.id]
+  return { name: it.name, icon: it.icon, desc: it.desc, type: SLOT[it.slot], color: it.glow || it.model?.color || '#e2b448' }
+}
+
+function Tags({ tags, owned }) {
+  if (!tags.length) return null
   return (
-    <span className="card-art">
-      <Icon name={card.icon} color={card.color} size={size} />
+    <span className="tags">
+      {tags.map((t) => <span key={t} className={`tag-chip ${owned?.has(t) ? 'synergy' : ''}`} style={{ borderColor: TAG_COLORS[t] || '#888', color: TAG_COLORS[t] || '#ccc' }}>{t}</span>)}
     </span>
   )
 }
 
-function Creating({ state, me, playing, dispatch }) {
+function LevelUp({ state, me, playing, dispatch }) {
   const [chosen, setChosen] = useState(null)
-  const category = ROUNDS[state.round]
-  const hand = state.hands[me] || []
-  const done = state.submitted[me]
   const hero = state.heroes[me]
-  const preview = !done && chosen ? CARDS[chosen] : null
+  const offers = state.offers[me] || []
+  const done = state.submitted[me]
+  const preview = !done && chosen !== null ? offers[chosen] : null
+  const owned = new Set(hero ? heroTags(hero) : [])
+  const next = LEVELS[state.stage + 1]
+  const previewHero = hero && preview ? { ...hero, ...(preview.kind === 'item' ? { items: [...hero.items, preview.id] } : { skills: [...hero.skills, preview.id] }) } : hero
 
   return (
     <>
-      <Heading icon={ROUND_ICONS[category]} kicker={`Chapter ${state.round + 1} of ${ROUNDS.length}`} title={category} intro={ROUND_INTROS[category]} />
-      <div className="split">
-        {playing && (
+      <Heading icon="upgrade" kicker={`Victory in ${LEVELS[state.stage].name}`} title={hero ? `Level ${hero.level}!` : 'Level up'} intro="Choose one reward. Rewards that share a tag with your gear stack into synergies." />
+      {playing && (
+        <div className="split">
           <div className="model-col">
             <HeroViewer spec={heroSpec(hero, preview)} className="viewer" />
             <p className="model-name">{heroTitle(hero)}</p>
-            <AbilityBlock stats={heroStats({ ...hero, picks: preview ? [...hero.picks, { cardId: preview.id }] : hero.picks })} />
+            <AbilityBlock stats={heroStats(previewHero)} />
+            <CombatLine st={heroCombat(previewHero)} />
           </div>
-        )}
-        <div className="play-col">
-          {playing && !done && (
-            <>
-              <p className="muted center small">Tap a card to try it on your hero, then claim it.</p>
-              <div className="hand carousel">
-                {hand.map((id) => (
-                  <button key={id} className={`draw ${chosen === id ? 'on' : ''}`} onClick={() => setChosen(id)}>
-                    <CardArt card={CARDS[id]} />
-                    <strong>{CARDS[id].name}</strong>
-                    <Bonus stats={CARDS[id].stats} />
-                    <span className="flavor">…{CARDS[id].line}</span>
-                  </button>
-                ))}
-              </div>
-              <button disabled={!chosen} onClick={() => dispatch({ type: 'pick', cardId: chosen })}>
-                {chosen ? `Claim the ${CARDS[chosen].name}` : 'Choose a card'}
-              </button>
-            </>
-          )}
-          {done && <p className="muted center">Chosen. Waiting for the others…</p>}
-          <Waiting state={state} done={state.submitted} />
+          <div className="play-col">
+            {done ? (
+              <p className="intro center">Reward claimed. Waiting for the party…</p>
+            ) : (
+              <>
+                <div className="hand">
+                  {offers.map((o, i) => {
+                    const info = offerInfo(o)
+                    const tags = lootTags(o)
+                    const synergy = tags.some((t) => owned.has(t))
+                    return (
+                      <button key={`${o.kind}-${o.id}`} type="button" className={`draw offer ${chosen === i ? 'on' : ''}`} onClick={() => setChosen(i)}>
+                        <span className="card-art"><Icon name={info.icon} color={info.color} size={70} /></span>
+                        <span className="rarity" style={{ color: RARITY[o.rarity] }}>{o.rarity} {info.type}</span>
+                        <strong>{info.name}</strong>
+                        <span className="small">{info.desc}</span>
+                        <Tags tags={tags} owned={owned} />
+                        {synergy && <span className="synergy-badge">Synergy!</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+                <button disabled={chosen === null} onClick={() => dispatch({ type: 'pick', index: chosen })}>Claim reward</button>
+              </>
+            )}
+            <Kit hero={hero} />
+            {next && <p className="muted center">Next: <strong>{next.name}</strong>. {next.intro}</p>}
+          </div>
         </div>
+      )}
+      <Waiting state={state} done={state.submitted} />
+    </>
+  )
+}
+
+function Kit({ hero }) {
+  if (!hero) return null
+  const entries = [
+    { icon: weaponIcon(hero.weapon), name: WEAPONS[hero.weapon]?.name, color: '#f0e0c0' },
+    ...hero.items.map((id) => offerInfo({ kind: 'item', id })),
+    ...hero.skills.map((id) => offerInfo({ kind: 'skill', id })),
+  ]
+  return (
+    <div className="kit">
+      <p className="label">Your kit</p>
+      <div className="kit-row">
+        {entries.map((e, i) => (
+          <span key={i} className="kit-item" title={e.desc || e.name}>
+            <Icon name={e.icon} color={e.color} size={28} />
+            <span className="small">{e.name}</span>
+          </span>
+        ))}
       </div>
-    </>
+      <Tags tags={heroTags(hero)} />
+    </div>
   )
 }
 
-function HeroSheet({ hero, highlight, viewer = true }) {
-  return (
-    <article className={`sheet parchment ${highlight ? 'highlight' : ''}`}>
-      {viewer && <HeroViewer spec={heroSpec(hero)} className="viewer sheet-viewer" autoRotate />}
-      <h2>{heroTitle(hero)}</h2>
-      <p className="byline">played by {hero.player}</p>
-      <AbilityBlock stats={heroStats(hero)} />
-      {legend(hero).map((line, i) => (
-        <div key={i} className="entry">
-          {i > 0 && <Icon name={CARDS[hero.picks[i - 1].cardId].icon} color="#5a3a1a" size={28} className="entry-icon" />}
-          <p className="story">
-            {i > 0 && <span className="tag">{CARDS[hero.picks[i - 1].cardId].category}: {CARDS[hero.picks[i - 1].cardId].name}</span>}
-            {line}
-          </p>
-        </div>
-      ))}
-    </article>
-  )
-}
-
-function Reveal({ state, isHost, dispatch }) {
-  const id = state.order[state.revealIndex]
-  const last = state.revealIndex === state.order.length - 1
-  return (
-    <>
-      <Heading icon="scroll-quill" kicker={`Legend ${state.revealIndex + 1} of ${state.order.length}`} title="The legends are told" />
-      <HeroSheet key={id} hero={state.heroes[id]} highlight />
-      {isHost ? (
-        <button onClick={() => dispatch({ type: 'next' })}>{last ? 'To the vote' : 'Next legend'}</button>
-      ) : (
-        <p className="muted center">The host turns the page…</p>
-      )}
-    </>
-  )
-}
-
-function Voting({ state, me, playing, dispatch }) {
-  const voted = state.votes[me]
-  return (
-    <>
-      <Heading icon="tavern-sign" title="The Tavern Vote" intro="Whose legend will the bards sing tonight?" />
-      {playing && !voted && (
-        <div className="hand carousel">
-          {state.order.filter((id) => id !== me).map((id) => (
-            <button key={id} className="draw" onClick={() => dispatch({ type: 'vote', target: id })}>
-              <HeroViewer spec={heroSpec(state.heroes[id])} className="viewer vote-viewer" interactive={false} autoRotate />
-              <strong>{heroTitle(state.heroes[id])}</strong>
-              <span className="byline">{state.heroes[id].player}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      <Waiting state={state} done={state.votes} />
-    </>
-  )
-}
-
-function Results({ state, isHost, onRestart }) {
-  const { counts, winners } = tally(state)
+function Ending({ state, isHost, dispatch }) {
+  const won = state.phase === 'victory'
   return (
     <>
       <Heading
-        icon="laurel-crown"
-        title="Legends of the Tavern"
-        intro={winners.length > 0 && `${winners.map((id) => state.heroes[id].heroName).join(' and ')} ${winners.length > 1 ? 'share' : 'takes'} the crown!`}
+        icon={won ? 'laurel-crown' : 'tombstone'}
+        kicker={won ? 'The end' : `Fallen in ${LEVELS[state.stage].name}`}
+        title={won ? 'Dragonslayers!' : 'Game over'}
+        intro={won ? 'Ignaxis the Red is no more. Your names will be sung in every tavern.' : `The party made it through ${state.stage} of ${STAGES} battles.`}
       />
-      <div className="results">
-        {state.order.map((id) => (
-          <div key={id}>
-            {state.order.length > 1 && <p className="votes">{winners.includes(id) && '🏆 '}{counts[id]} vote{counts[id] === 1 ? '' : 's'}</p>}
-            <HeroSheet hero={state.heroes[id]} highlight={winners.includes(id)} />
-          </div>
-        ))}
+      <div className="lineup">
+        {state.order.map((id) => {
+          const h = state.heroes[id]
+          return (
+            <div key={id} className="lineup-hero">
+              <HeroViewer spec={heroSpec(h)} className="viewer small" autoRotate interactive={false} />
+              <strong>{h.heroName}</strong>
+              <span className="small muted">Level {h.level} {heroTitle(h).split(', ')[1]} · {h.player}</span>
+              <Kit hero={h} />
+            </div>
+          )
+        })}
       </div>
-      {isHost ? <button onClick={onRestart}>Back to the tavern</button> : <p className="muted center">The host can start a new tale.</p>}
+      {isHost ? <button onClick={() => dispatch({ type: 'restart' })}>Play again</button> : <p className="muted center">Waiting for the host to start a new run…</p>}
     </>
   )
 }

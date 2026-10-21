@@ -4,10 +4,10 @@ import Icon from './Icon'
 const SKIES = {
   lobby: ['#0d0b1e', '#2a1f4a', '#6b3a5a'],
   forge: ['#140a10', '#3a1a1a', '#b0502a'],
-  creating: ['#140d24', '#3a2350', '#a0583a'],
-  reveal: ['#1a0d10', '#4a1f2a', '#d0803a'],
-  voting: ['#0d0b1e', '#2a1f4a', '#c0703a'],
-  results: ['#1a1408', '#5a3a14', '#e0a040'],
+  battle: ['#0d0b1e', '#1a1428', '#2a1a2a'],
+  loot: ['#140d24', '#3a2350', '#a0583a'],
+  victory: ['#1a1408', '#5a3a14', '#e0a040'],
+  defeat: ['#0a0a12', '#1a1424', '#3a2a3a'],
 }
 
 const STARS = Array.from({ length: 60 }, (_, i) => ({

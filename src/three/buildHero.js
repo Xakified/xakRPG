@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { RACE_BY_ID } from '../game/data/races'
 import { CLASS_BY_ID } from '../game/data/classes'
+import { DEFAULT_LOOK } from '../game/data/looks'
 import { buildBody } from './body'
 import { buildBeard, buildHair } from './hair'
 import { buildOutfit } from './outfit'
@@ -45,29 +46,35 @@ function resolveOutfit(cls, armor) {
   return o
 }
 
-// spec: { race, cls, look, picks: { Weapon, Armor, Companion, Relic, Secret } }
-// where each pick is a card's model spec. Returns the scene object, its
-// height, and an update(time) function for idle animation.
+// spec: { race | raceDef, cls, look, size, outfit, armor, weapon, relic, pet, aura }.
+// armor/weapon/relic/pet are item model specs; outfit replaces the class
+// outfit entirely (monsters). Returns the scene object, its height, and an
+// update(time) function for idle animation.
 export function buildHero(spec) {
-  const race = RACE_BY_ID[spec.race] || RACE_BY_ID.human
+  const race = spec.raceDef || RACE_BY_ID[spec.race] || RACE_BY_ID.human
   const cls = CLASS_BY_ID[spec.cls]
-  const picks = spec.picks || {}
+  const picks = { Weapon: spec.weapon, Armor: spec.armor, Relic: spec.relic, Companion: spec.pet }
   const f = race.f
-  const outfit = cls ? resolveOutfit(cls, picks.Armor) : { style: 'cloth', main: '#8a7a6a', accent: '#5a4a3a', extras: new Set() }
+  const look = { ...DEFAULT_LOOK, ...spec.look }
+  const size = (race.size || 1) * (spec.size || 1)
+  const outfit = spec.outfit
+    ? { ...spec.outfit, extras: new Set(spec.outfit.extras) }
+    : cls ? resolveOutfit(cls, picks.Armor) : { style: 'cloth', main: '#8a7a6a', accent: '#5a4a3a', extras: new Set() }
 
   const root = new THREE.Group()
   const hero = new THREE.Group()
   root.add(hero)
-  const a = buildBody(hero, { look: spec.look, f, outfit })
+  const a = buildBody(hero, { look, f, outfit })
   const hairHidden = outfit.extras.has('hood') || outfit.extras.has('jesterHat')
-  if (!f.noHair) buildHair(hero, spec.look.hair, spec.look.hairColor, a, { hidden: hairHidden })
-  if (!f.noHair && !f.construct) buildBeard(hero, spec.look.beard, spec.look.hairColor, a)
-  buildOutfit(hero, outfit, a, spec.look)
-  if (cls) placeWeapon(hero, picks.Weapon || DEFAULT_WEAPONS[cls.weapon], a)
-  hero.scale.setScalar(race.size)
+  if (!f.noHair) buildHair(hero, look.hair, look.hairColor, a, { hidden: hairHidden })
+  if (!f.noHair && !f.construct) buildBeard(hero, look.beard, look.hairColor, a)
+  buildOutfit(hero, outfit, a, look)
+  const weapon = picks.Weapon || (cls && DEFAULT_WEAPONS[cls.weapon])
+  if (weapon) placeWeapon(hero, weapon, a)
+  hero.scale.setScalar(size)
 
   const animated = []
-  const height = a.top * race.size
+  const height = a.top * size
 
   if (picks.Relic) {
     const relic = buildRelic(picks.Relic)
@@ -89,7 +96,7 @@ export function buildHero(spec) {
         root.add(g)
       } else if (pet.kind === 'perch') {
         g.position.set(-a.sW - 0.02, a.sY + 0.04, 0)
-        g.scale.setScalar(1 / race.size ** 0.5)
+        g.scale.setScalar(1 / size ** 0.5)
         hero.add(g)
       } else {
         root.add(g)
@@ -103,10 +110,10 @@ export function buildHero(spec) {
     if (o.name === 'wing' && o.parent === hero) animated.push((t) => (o.rotation.y = o.userData.flap * (0.55 + Math.sin(t * 1.5) * 0.12)))
   })
 
-  if (picks.Secret) root.add(buildAura(picks.Secret.aura, height, animated))
+  if (spec.aura) root.add(buildAura(spec.aura, height, animated))
 
   animated.push((t) => {
-    hero.scale.y = race.size * (1 + Math.sin(t * 2) * 0.006)
+    hero.scale.y = size * (1 + Math.sin(t * 2) * 0.006)
   })
 
   return {

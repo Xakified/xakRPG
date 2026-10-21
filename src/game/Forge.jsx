@@ -5,9 +5,16 @@ import { AbilityBlock, Bonus } from './Stats'
 import { RACES, RACE_BY_ID } from './data/races'
 import { CLASSES, CLASS_BY_ID } from './data/classes'
 import { DEFAULT_LOOK, EYE_COLORS, FACIAL_HAIR, HAIR_COLORS, HAIR_STYLES, SKIN_TONES } from './data/looks'
-import { heroStats } from './engine'
+import { heroSpec, heroStats } from './engine'
+import { STARTING_WEAPONS, WEAPONS } from './combat/weapons'
+import { CLASS_SKILLS, SKILLS } from './combat/skills'
+import { heroCombat } from './combat/battle'
 
-const STEPS = ['Race', 'Body', 'Skin & Hair', 'Class', 'Name']
+const STEPS = ['Race', 'Body', 'Skin & Hair', 'Class', 'Weapon', 'Name']
+
+const ABILITY_LABEL = { STR: 'Strength', DEX: 'Dexterity', finesse: 'Strength or Dexterity', spell: 'your casting stat' }
+const WEAPON_ICONS = { sword: 'broadsword', greatsword: 'broadsword', runeblade: 'broadsword', axe: 'battle-axe', greataxe: 'battle-axe', warhammer: 'warhammer', mace: 'flanged-mace', flail: 'flail', spear: 'spear-hook', staff: 'wizard-staff', woodStaff: 'wizard-staff', totem: 'totem-head', wand: 'crystal-wand', orb: 'crystal-ball', bow: 'high-shot', crossbow: 'crossbow', daggers: 'crossed-swords', scythe: 'scythe', lute: 'guitar', fists: 'fist' }
+export const weaponIcon = (id) => WEAPON_ICONS[WEAPONS[id]?.model.type] || 'crossed-swords'
 
 function Swatches({ colors, value, onPick, label }) {
   return (
@@ -47,18 +54,26 @@ function Slider({ label, left, right, value, onChange }) {
 }
 
 export default function Forge({ hero, done, onSubmit }) {
+  const last = hero?.last
   const [step, setStep] = useState(0)
-  const [race, setRace] = useState(null)
-  const [cls, setCls] = useState(null)
-  const [look, setLook] = useState(DEFAULT_LOOK)
-  const [heroName, setHeroName] = useState('')
+  const [race, setRace] = useState(last?.race || null)
+  const [cls, setCls] = useState(last?.cls || null)
+  const [weapon, setWeapon] = useState(last?.weapon || null)
+  const [look, setLook] = useState(last?.look || DEFAULT_LOOK)
+  const [heroName, setHeroName] = useState(last?.heroName || '')
   const [filter, setFilter] = useState('')
   const r = RACE_BY_ID[race]
   const set = (patch) => setLook((l) => ({ ...l, ...patch }))
 
-  const spec = useMemo(() => ({ race: race || 'human', cls, look, picks: {} }), [race, cls, look])
-  const stats = heroStats({ race, cls, picks: [] })
-  const canNext = [Boolean(race), true, true, Boolean(cls), Boolean(heroName.trim())][step]
+  const spec = useMemo(() => heroSpec({ race: race || 'human', cls, look, weapon }), [race, cls, look, weapon])
+  const stats = heroStats({ race, cls })
+  const combat = cls && weapon ? heroCombat({ race: race || 'human', cls, weapon, level: 1 }) : null
+  const canNext = [Boolean(race), true, true, Boolean(cls), Boolean(weapon), Boolean(heroName.trim())][step]
+
+  function pickClass(id) {
+    setCls(id)
+    if (!STARTING_WEAPONS[id].includes(weapon)) setWeapon(STARTING_WEAPONS[id][0])
+  }
 
   function pickRace(id) {
     const next = RACE_BY_ID[id]
@@ -70,7 +85,7 @@ export default function Forge({ hero, done, onSubmit }) {
     return (
       <div className="split">
         <div className="model-col">
-          <HeroViewer spec={{ race: hero.race, cls: hero.cls, look: hero.look, picks: {} }} className="viewer" autoRotate />
+          <HeroViewer spec={heroSpec(hero)} className="viewer" autoRotate />
         </div>
         <div className="play-col">
           <p className="intro center">{hero.heroName} is ready. Waiting for the rest of the party…</p>
@@ -88,6 +103,7 @@ export default function Forge({ hero, done, onSubmit }) {
         <p className="hint">Drag to turn your hero</p>
         {r && <p className="model-name">{heroName || 'Your hero'}{r && `, ${r.name}`}{cls && ` ${CLASS_BY_ID[cls].name}`}</p>}
         <AbilityBlock stats={stats} />
+        {combat && <CombatLine st={combat} />}
       </div>
 
       <div className="play-col">
@@ -149,7 +165,7 @@ export default function Forge({ hero, done, onSubmit }) {
         {step === 3 && (
           <div className="class-grid">
             {CLASSES.map((c) => (
-              <button key={c.id} type="button" className={`draw class ${cls === c.id ? 'on' : ''}`} onClick={() => setCls(c.id)}>
+              <button key={c.id} type="button" className={`draw class ${cls === c.id ? 'on' : ''}`} onClick={() => pickClass(c.id)}>
                 <span className="card-art small"><Icon name={c.icon} color="#e2b448" size={46} /></span>
                 <strong>{c.name}</strong>
                 <span className="small">{c.blurb}</span>
@@ -159,12 +175,40 @@ export default function Forge({ hero, done, onSubmit }) {
           </div>
         )}
 
-        {step === 4 && (
-          <form className="panel" onSubmit={(e) => { e.preventDefault(); if (canNext) onSubmit({ heroName, race, cls, look }) }}>
+        {step === 4 && cls && (
+          <>
+            <div className="class-grid">
+              {STARTING_WEAPONS[cls].map((id) => {
+                const w = WEAPONS[id]
+                return (
+                  <button key={id} type="button" className={`draw class ${weapon === id ? 'on' : ''}`} onClick={() => setWeapon(id)}>
+                    <span className="card-art small"><Icon name={weaponIcon(id)} color={w.model.glow || '#e2b448'} size={46} /></span>
+                    <strong>{w.name}</strong>
+                    <span className="small">{w.blurb}</span>
+                    <span className="stats">{w.hits ? `${w.hits}×` : ''}{w.dice[0]}d{w.dice[1]} · range {w.range} · uses {ABILITY_LABEL[w.ability]}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="label">Your starting skills</p>
+            <div className="skill-list">
+              {CLASS_SKILLS[cls].map((id) => (
+                <div key={id} className="skill-row">
+                  <Icon name={SKILLS[id].icon} color="#c8a0ff" size={32} />
+                  <span><strong>{SKILLS[id].name}</strong> <span className="small muted">{SKILLS[id].desc}</span></span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {step === 4 && !cls && <p className="muted">Pick a class first.</p>}
+
+        {step === 5 && (
+          <form className="panel" onSubmit={(e) => { e.preventDefault(); if (canNext && weapon) onSubmit({ heroName, race, cls, look, weapon }) }}>
             <p className="label">What will the bards call you?</p>
             <input autoFocus placeholder="Hero name" maxLength={30} value={heroName} onChange={(e) => setHeroName(e.target.value)} />
-            <button disabled={!heroName.trim() || !race || !cls}>Enter the tale</button>
-            {(!race || !cls) && <p className="muted small">Pick a race and a class first.</p>}
+            <button disabled={!heroName.trim() || !race || !cls || !weapon}>Ready for battle</button>
+            {(!race || !cls || !weapon) && <p className="muted small">Pick a race, class and weapon first.</p>}
           </form>
         )}
 
@@ -173,6 +217,19 @@ export default function Forge({ hero, done, onSubmit }) {
           {step < STEPS.length - 1 && <button type="button" disabled={!canNext} onClick={() => setStep(step + 1)}>Next</button>}
         </div>
       </div>
+    </div>
+  )
+}
+
+export function CombatLine({ st }) {
+  return (
+    <div className="combat-line">
+      <span title="Hit points"><b>{st.maxHp}</b> HP</span>
+      <span title="Armor class: enemies need this on a d20 roll to hit you"><b>{st.ac}</b> AC</span>
+      <span title="Hexes you can move each turn"><b>{st.speed}</b> Move</span>
+      <span title="Added to your d20 attack roll"><b>+{st.toHit}</b> Hit</span>
+      <span title="Weapon damage">{st.hits > 1 ? `${st.hits}×` : ''}{st.dice[0]}d{st.dice[1]}{st.dmg ? (st.dmg > 0 ? `+${st.dmg}` : st.dmg) : ''} Dmg</span>
+      <span title="Enemies must beat this to resist your spells"><b>{st.dc}</b> Spell DC</span>
     </div>
   )
 }

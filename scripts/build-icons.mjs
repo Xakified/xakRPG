@@ -1,24 +1,27 @@
-// Copies just the game-icons.net icons the cards use into src/game/icons.json,
-// so the bundle doesn't carry all 4000+. Run after changing icons in cards.js:
+// Copies just the game-icons.net icons the game uses into src/game/icons.json,
+// so the bundle doesn't carry all 4000+. Any quoted string in src/game that
+// names an icon counts. Run after adding icons:
 //   node scripts/build-icons.mjs
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const all = JSON.parse(readFileSync(new URL('../node_modules/@iconify-json/game-icons/icons.json', import.meta.url)))
-const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
-const cards = read('../src/game/cards.js')
-const classes = read('../src/game/data/classes.js')
-const extra = ['anvil-impact', 'breastplate', 'wyvern', 'crystal-ball', 'cloak-dagger', 'castle', 'elven-castle', 'scroll-quill', 'tavern-sign', 'laurel-crown', 'crossed-swords', 'dice-twenty-faces-twenty', 'speaker', 'speaker-off']
-const names = new Set([
-  ...[...cards.matchAll(/, '([a-z0-9-]+)', '#[0-9a-f]{6}'\]/g)].map((m) => m[1]),
-  ...[...classes.matchAll(/icon: '([a-z0-9-]+)'/g)].map((m) => m[1]),
-  ...extra,
-])
+const root = new URL('../src/game/', import.meta.url).pathname
+const extra = ['speaker', 'speaker-off']
+
+function files(dir) {
+  return readdirSync(dir).flatMap((f) => {
+    const p = join(dir, f)
+    return statSync(p).isDirectory() ? files(p) : /\.(js|jsx)$/.test(f) && !f.endsWith('icons.json') ? [p] : []
+  })
+}
+
+const names = new Set(extra)
+for (const file of files(root)) {
+  for (const m of readFileSync(file, 'utf8').matchAll(/['"]([a-z0-9]+(?:-[a-z0-9]+)*)['"]/g)) if (all.icons[m[1]]) names.add(m[1])
+}
 
 const icons = {}
-for (const name of names) {
-  const icon = all.icons[name]
-  if (!icon) throw new Error(`Unknown icon: ${name}`)
-  icons[name] = icon.body.replace(/fill="#000"/g, 'fill="currentColor"')
-}
+for (const name of names) icons[name] = all.icons[name].body.replace(/fill="#000"/g, 'fill="currentColor"')
 writeFileSync(new URL('../src/game/icons.json', import.meta.url), JSON.stringify(icons))
 console.log(`Wrote ${names.size} icons`)

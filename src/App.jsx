@@ -23,6 +23,14 @@ export default function App() {
 
   useEffect(() => () => roomRef.current?.leave(), [])
 
+  // Host only: play the enemy turn one monster at a time so everyone can follow it.
+  useEffect(() => {
+    const b = game?.battle
+    if (!isHostRef.current || game?.phase !== 'battle' || b.turn !== 'enemy' || b.result) return
+    const timer = setTimeout(() => dispatch({ type: 'enemyStep' }), 650)
+    return () => clearTimeout(timer)
+  }, [game])
+
   // Host only: drop players who have been gone for a while (a phone screen
   // locking for a few seconds shouldn't kick anyone out of the tale).
   useEffect(() => {
@@ -119,6 +127,8 @@ export default function App() {
   }
 
   const me = playerRef.current
+  // Test hook for the Playwright scripts (dev builds only).
+  if (import.meta.env.DEV) window.__xak = { game, me: me.id, dispatch, publish }
   const isHost = players[0]?.id === me.id
   const allReady = players.length > 0 && players.every((p) => p.ready)
   let screen
@@ -128,7 +138,7 @@ export default function App() {
       <main className="card">
         <Icon name="crossed-swords" color="#e2b448" size={64} className="crest" />
         <h1 className="title">xakRPG</h1>
-        <p className="intro center">Gather up to {MAX_PLAYERS} adventurers and write your legends together.</p>
+        <p className="intro center">Gather up to {MAX_PLAYERS} adventurers, forge your heroes, and fight your way to the dragon.</p>
         <input placeholder="Your name" value={name} maxLength={20} onChange={(e) => setName(e.target.value)} />
         <button onClick={() => enter(makeRoomCode())}>Create room</button>
         <div className="row">
@@ -157,7 +167,6 @@ export default function App() {
         me={me.id}
         isHost={isHost}
         dispatch={dispatch}
-        onRestart={() => publish(null)}
         onLeave={leave}
       />
     )
@@ -179,7 +188,7 @@ export default function App() {
         <button onClick={toggleReady}>{me.ready ? 'Not ready' : 'Ready'}</button>
         {isHost && (
           <button disabled={!allReady} onClick={() => publish(newGame(players))}>
-            Begin the tale
+            Begin the adventure
           </button>
         )}
         <button className="link" onClick={leave}>Leave room</button>
